@@ -1,0 +1,13 @@
+---
+title: "wk3_hw"
+output: html_document
+date: "2023-10-24"
+---
+
+```{r}
+import
+```
+
+```{r}
+
+```

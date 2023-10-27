@@ -1,0 +1,247 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(here)
+library(sf)
+library(raster)
+library(terra)
+library(janitor)
+library(dplyr)
+```
+
+```{r}
+# Read the layers in a geopackage
+st_layers(here("wk3_data", "gadm41_VNM.gpkg"))
+
+# Read geopackage into a layer
+VnOutline <- st_read(here("wk3_data", "gadm41_VNM.gpkg"),
+                     layer = 'ADM_ADM_0')
+
+plot(VnOutline)
+
+```
+
+```{r}
+ # Check PCS
+st_crs(VnOutline)
+st_crs(VnOutline)$proj4string
+
+# # Transform CRS
+# VnOutlineTrans <- VnOutline %>%
+#   st_transform(.,...)
+
+# Transitioning from sp/raster to sf/stars/terra
+# ## From sf to sp
+# VnOutlineSP <- VnOutline %>%
+#   as(., "Spatial")
+#
+# ## From sp to sf
+# VnOutlineSF <- VnOutlineSP %>%
+#   st_as_sf()
+```
+
+\
+
+```{r}
+# Import raster
+ssp1 <- terra::rast(here("wk3_data", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp126_2081-2100.tif"))
+ssp5 <- terra::rast(here("wk3_data", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp585_2081-2100.tif"))
+print(ssp1)
+print(ssp5)
+plot(ssp1)
+plot(ssp5)
+
+```
+
+-   Visualize the 2 rasters of temp
+-   Extract lat/lon from all cities
+-   Get max temp for all cities in either narrative
+-   Descriptive Stats
+
+```{r}
+# Crop and mask Vietnam
+ssp1_vn <- ssp1 %>%
+  terra::crop(.,VnOutline) %>%
+  terra::mask(.,VnOutline)
+plot(ssp1_vn)
+
+ssp5_vn <- ssp5 %>%
+  terra::crop(.,VnOutline) %>%
+  terra::mask(.,VnOutline)
+plot(ssp5_vn)
+
+# differencein max temp 
+diff_vn <- ssp5_vn - ssp1_vn
+plot(diff_vn)
+
+# Change name of months
+
+months <- c("Jan","Feb","Mar","Apr","May","Jun", "Jul","Aug","Sep","Oct","Nov","Dec")
+
+names(diff_vn) <- months
+```
+
+```{r}
+WorldCities <- st_read(here("wk3_data","World_Cities.geojson")) %>%
+  clean_names()
+
+summary(WorldCities)
+
+View(WorldCities)
+
+VnCities <- WorldCities %>%
+  filter(.,cntry_name=="Vietnam") %>%
+  select(c("city_name","admin_name","status","geometry"))
+
+```
+
+```{r}
+# Filter into dataframe with cities, lat, lon
+
+VnCitiesssp1 <- VnCities %>%
+  terra::extract(ssp1_vn,.)
+
+VnCitiesssp5 <- VnCities %>%
+  terra::extract(ssp5_vn,.)
+
+VnCities_diff <- VnCities %>%
+  terra::extract(diff_vn,.)
+
+VnCities_diff
+
+VnCities
+```
+
+```{r}
+# merge diff_vn into VnCities to know which city is which
+
+VnCitieswID <- VnCities %>%
+  mutate(join_id= 1:n())
+VnCitiesdiff2 <- VnCitieswID%>%
+  dplyr::left_join(.,
+            VnCities_diff,
+             by = c("join_id" = "ID"))
+
+VnCitiesdiff2
+
+```
+
+```{r}
+library(ggplot2)
+# pivot longer for ggplot, try facet
+
+# for histogram no need for geometry
+VnCitiesdiff2_nogeo <- VnCitiesdiff2 %>%
+  dplyr::select(c(,5:16))%>%
+  sf::st_drop_geometry(.)%>%
+  dplyr::as_tibble()
+
+tidy_VnCitiesdiff2_nogeo <- VnCitiesdiff2_nogeo %>%
+  tidyr::pivot_longer(everything(), 
+               names_to="Months", 
+               values_to="temp_diff")
+
+tidy_VnCitiesdiff2_nogeo
+
+# factor column type if for categorical data (factor = levels)
+facet_plot <- tidy_VnCitiesdiff2_nogeo %>%
+  dplyr::mutate(Months = factor(Months, levels = c("Jan","Feb","Mar",
+                                            "Apr","May","Jun",
+                                            "Jul","Aug","Sep",
+                                            "Oct","Nov","Dec")))
+
+facet_plot
+
+plot<-ggplot(facet_plot, aes(x=temp_diff, na.rm=TRUE))+
+  geom_histogram(color="black", binwidth = .1)+
+  labs(title="Ggplot2 faceted difference in climate scenarios of max temp", 
+       x="Temperature",
+       y="Frequency")+
+  facet_grid(Months ~ .)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot
+
+# Plot faceted histogram
+plot<-ggplot(facet_plot, aes(x=temp_diff, na.rm=TRUE))+
+  geom_histogram(color="black", binwidth = .1)+
+  labs(title="Ggplot2 faceted difference in climate scenarios of max temp", 
+       x="Temperature",
+       y="Frequency")+
+  facet_grid(Months ~ .)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot
+```
+
+```{r}
+# try violin, boxplot
+
+
+
+####### extra analysis ####when i assumed it was just a single year not months
+
+ssp1 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp126_2021-2040.tif"))
+ssp2 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp245_2021-2040.tif"))
+ssp3 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp370_2021-2040.tif"))
+ssp5 <-terra::rast(here("homework_3", "wc2.1_2.5m_tmax_ACCESS-CM2_ssp585_2021-2040.tif"))
+
+ssp1mean <- ssp1 %>%
+  terra::crop(.,spain)%>%
+  terra::mask(.,spain)%>%
+  mean(.)
+
+ssp2mean <- ssp2 %>%
+  terra::crop(.,spain)%>%
+  terra::mask(.,spain)%>%
+  mean(.)
+  
+ssp3mean <- ssp3 %>%
+  terra::crop(.,spain)%>%
+  terra::mask(.,spain)%>%
+  mean(.)
+  
+ssp5mean <- ssp5 %>%
+  terra::crop(.,spain)%>%
+  terra::mask(.,spain)%>%
+  mean(.)
+  
+spain_city_ssp1<- terra::extract(ssp1mean, spanish_cities)
+spain_city_ssp2<- terra::extract(ssp2mean, spanish_cities)
+spain_city_ssp3<- terra::extract(ssp3mean, spanish_cities)
+spain_city_ssp5<- terra::extract(ssp5mean, spanish_cities)
+
+spain_city3 <- spanish_cities %>% 
+  add_column(ssp1=spain_city_ssp1$mean)%>%
+  add_column(ssp2=spain_city_ssp2$mean)%>%
+  add_column(ssp3=spain_city_ssp3$mean)%>%
+  add_column(ssp5=spain_city_ssp5$mean)
+
+spain_city4 <- spain_city3 %>%
+  as_tibble()%>%
+  dplyr::select(city_name, ssp1, ssp2, ssp3, ssp5)%>%
+  pivot_longer(cols = 2:5,
+              names_to = "model",
+              values_to = "max_temp"
+  )
+
+violin <- ggplot(spain_city4, 
+                 aes(x=model, y=max_temp, fill=model)) + # fill=name allow to automatically dedicate a color for each group
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))+
+  geom_point()
+#geom_jitter(height = 0, width = 0.1)
+
+box <- ggplot(spain_city4, aes(x=model, y=max_temp, fill=model)) + # fill=name allow to automatically dedicate a color for each group
+  geom_boxplot()+
+  theme_minimal()+
+  labs(
+    x="Model", 
+    y="Climate projection max tempearture")+
+  theme(legend.position = "none")
+
+violin
+box
+```

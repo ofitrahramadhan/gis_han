@@ -1,0 +1,104 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+**The task this week is to:**
+
+-   Read in [global gender inequality
+    data](https://hdr.undp.org/data-center/documentation-and-downloads)
+
+-   Join the global gender inequality index to [spatial data of the
+    World](https://hub.arcgis.com/datasets/2b93b06dc0dc4e809d3c8db5cb96ba69_0/explore?location=-2.688200%2C0.000000%2C1.41),
+    creating a new column of difference in inequality between 2010 and
+    2019
+
+```{=html}
+<!-- -->
+```
+-   Share it with the World on GitHub
+
+-   Add you repository URL to the circulated spreadsheet
+
+[**Tip:**]{.underline}
+
+-   The [countrycode](https://github.com/vincentarelbundock/countrycode)
+    R package will be helpful!
+
+-   The gender inequality has changed in the last year, you will find
+    what you need in the "All composite indices and components time
+    series (1990-2021)" dataset, the metadata file beneath it will
+    explain what the columns are.
+
+### Install packages and load them in
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(terra)
+library(here)
+install.packages('remotes')
+library(remotes)
+install_github('vincentarelbundock/countrycode')
+library(countrycode)
+library(tmap)
+```
+
+### Read in inequality data and spatial data of the world
+
+```{r}
+
+world <-
+  st_read(here("wk4_data", "World_Countries_Generalized.geojson"))
+
+View(world)
+
+??countrycode
+```
+
+```{r}
+hdrdata <-
+  read_csv(here("wk4_data","HDR21-22_Composite_indices_complete_time_series.csv"))
+
+gii <- hdrdata %>%
+  select(iso3,
+         country,
+         hdicode,
+         region,
+         gii_2010,
+         gii_2019) %>%
+  mutate(iso = countrycode(
+    iso3,
+    origin = 'iso3c',
+    destination = 'iso2c',
+    nomatch = NA
+  )) %>%
+  mutate(gii_diff = gii_2019 - gii_2010)
+  
+```
+
+```{r}
+gii
+```
+
+### Join them and add a column of difference 2010 and 2019
+
+```{r}
+gii1019_map <- world %>% 
+  left_join(.,
+            gii,
+            by = c('ISO'='iso')
+            )
+```
+
+```{r}
+tmap_mode("plot")
+map <- gii1019_map %>% 
+  tm_shape(.) + 
+  tm_fill('gii_diff') +
+  tm_layout(title = 'Gender Inequality Index difference 2010-2019')
+map
+```
+
+### Share on GitHub
