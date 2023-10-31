@@ -14,9 +14,6 @@ editor_options:
     creating a new column of difference in inequality between 2010 and
     2019
 
-```{=html}
-<!-- -->
-```
 -   Share it with the World on GitHub
 
 -   Add you repository URL to the circulated spreadsheet
@@ -50,6 +47,7 @@ library(here)
 library(remotes)
 library(countrycode)
 library(tmap)
+library(sf)
 ```
 
 --------------------------------------------------------------------------------

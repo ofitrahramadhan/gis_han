@@ -6,11 +6,13 @@
 .httr-oauth
 .DS_Store
 .quarto
-.csv
-.tiff
 .tif
-.gpckg
+.xlsx
+.csv
 *data*
+!*/HDR21-22_Composite_indices-complete_time_series.csv
+
+
 # Compiled source #
 ###################
 *.com
@@ -19,6 +21,7 @@
 *.exe
 *.o
 *.so
+
 
 # Packages #
 ############
