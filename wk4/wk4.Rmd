@@ -14,9 +14,6 @@ editor_options:
     creating a new column of difference in inequality between 2010 and
     2019
 
-```{=html}
-<!-- -->
-```
 -   Share it with the World on GitHub
 
 -   Add you repository URL to the circulated spreadsheet
@@ -43,6 +40,7 @@ library(remotes)
 install_github('vincentarelbundock/countrycode')
 library(countrycode)
 library(tmap)
+library(sf)
 ```
 
 ### Read in inequality data and spatial data of the world
@@ -54,7 +52,7 @@ world <-
 
 View(world)
 
-??countrycode
+?st_read
 ```
 
 ```{r}
