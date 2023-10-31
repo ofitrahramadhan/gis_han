@@ -31,74 +31,99 @@ editor_options:
     series (1990-2021)" dataset, the metadata file beneath it will
     explain what the columns are.
 
+--------------------------------------------------------------------------------
+
 ### Install packages and load them in
 
-```{r}
+```{r include=FALSE}
+
+#install packages
+#install.packages('remotes')
+#install_github('vincentarelbundock/countrycode')
+
+#load packages
+library(sf)
 library(tidyverse)
 library(janitor)
 library(terra)
 library(here)
-install.packages('remotes')
 library(remotes)
-install_github('vincentarelbundock/countrycode')
 library(countrycode)
 library(tmap)
 ```
 
-### Read in inequality data and spatial data of the world
+--------------------------------------------------------------------------------
+
+### Read the necessary data
 
 ```{r}
 
-world <-
-  st_read(here("wk4_data", "World_Countries_Generalized.geojson"))
+#Read hdr data and manipulate to produce gii_diff_c
+hdrdata <- read_csv2(here("wk4_data","HDR21-22_Composite_indices_complete_time_series.csv")) %>%
+  dplyr::select(c("iso3", "country", "region", "gii_2010", "gii_2019"))
+#change column type as numeric
+hdrdata$gii_2010 <- as.numeric(hdrdata$gii_2010)
+hdrdata$gii_2019 <- as.numeric(hdrdata$gii_2019)
+#create new column called delta_gii (difference of gii between 2010 and 2019)
 
-View(world)
+#Read world map & join it with hdr data
+world <- st_read(here("wk4_data", "World_Countries_Generalized.geojson")) %>% 
+  dplyr::mutate(iso3 = countrycode(ISO, origin='iso2c', destination='iso3c'), .before=ISO) %>%
+  dplyr::left_join(., hdrdata, by='iso3') %>% 
+  dplyr::mutate(gii_diff = gii_2019 - gii_2010) %>%
+  dplyr::mutate(gii_diff_c = case_when(
+    gii_diff > 0 ~ "Increased",
+    gii_diff == 0 ~ "Constant",
+    gii_diff < 0 ~ "Decreased",
+    is.na(gii_diff) ~ "No Data"
+  ))
 
-??countrycode
 ```
 
-```{r}
-hdrdata <-
-  read_csv(here("wk4_data","HDR21-22_Composite_indices_complete_time_series.csv"))
+--------------------------------------------------------------------------------
 
-gii <- hdrdata %>%
-  select(iso3,
-         country,
-         hdicode,
-         region,
-         gii_2010,
-         gii_2019) %>%
-  mutate(iso = countrycode(
-    iso3,
-    origin = 'iso3c',
-    destination = 'iso2c',
-    nomatch = NA
-  )) %>%
-  mutate(gii_diff = gii_2019 - gii_2010)
-  
-```
+### Plot gii_diff in the Static Map
 
 ```{r}
-gii
-```
 
-### Join them and add a column of difference 2010 and 2019
-
-```{r}
-gii1019_map <- world %>% 
-  left_join(.,
-            gii,
-            by = c('ISO'='iso')
-            )
-```
-
-```{r}
 tmap_mode("plot")
-map <- gii1019_map %>% 
-  tm_shape(.) + 
-  tm_fill('gii_diff') +
-  tm_layout(title = 'Gender Inequality Index difference 2010-2019')
-map
+
+tm1 <- tm_shape(world) + 
+  tm_polygons("gii_diff_c", 
+              palette=c("yellow", "green", "red", "gray"))+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)+
+  tm_credits("Gender Inequality Index difference 2010-2019", position=c(0,0.85), size=1.5)
+
+legend <- tm_shape(world) +
+    tm_polygons("gii_diff_c",
+                palette=c("yellow", "green", "red", "gray")) +
+    tm_scale_bar(position=c(0.2,0.04), text.size=0.6)+
+    tm_compass(north=0, position=c(0.65,0.6))+
+    tm_layout(legend.only = TRUE, legend.position=c(0.2,0.25),asp=0.1)+
+    tm_credits("Gender Inequality Index difference 2010-2019", position=c(0.0,0.0))
+  
+t=tmap_arrange(tm1, legend, ncol=2)
+
+t
+
 ```
 
-### Share on GitHub
+--------------------------------------------------------------------------------
+
+### Plot gii_diff in the Basic Interactive Map
+
+```{r}
+
+tmap_mode("view")
+
+tm_view <- tm_shape(world) + 
+  tm_polygons("gii_diff_c", 
+              palette=c("yellow", "green", "red", "gray"))+
+  tm_legend(show=FALSE)+
+  tm_layout(frame=FALSE)
+
+tm_view
+
+```
+
